@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html> 
+ <head>
+    <title>Boids</title> 
+</head>
+ <body>
+    <p align="center"> 
+
+      <canvas id="mycanvas"></canvas> 
+    </p>
+ </body>
+ 
+ <script src="https://cdn.jsdelivr.net/processing.js/1.4.8/processing.min.js"></script> 
+ 
+ <script>
+    var sketchProc = function(processingInstance) {
+     with (processingInstance) {	 
+		var width=1200; // canvas width
+		var height=800; // canvas height
+		size(width,height);
+		frameRate(30);
+		
+		var nodeCount = 150; // how many simulation nodes
+		var nodeSize = 10; // length of single node
+		var nodeWidth = 5; // width of single node
+
+		var perceivedDist = 50; // how far can a single node see
+		var seperationDist = 40; // how close before node starts moving away from others
+		var alignmentDist = 50; // how far it will calculate local alginment
+
+		var seperationWeight = 0.4; // 0.4
+		var cohesionWeight = 0.3; // 0.3
+		var alignmentWeight = 0.3; // 0.3
+		var delta = 0.25;
+
+		var nodes = [];
+		 
+		// create nodes  
+		for(var i=0;i<nodeCount;i++) {
+			// random unit vector
+			var oX = random(-1,1);
+			var oY = sqrt(1 - (oX*oX))*((round(random(1))%2===0)?1:-1);
+			
+			// add node to list
+			nodes.push(
+				{
+					// position
+					'x': random(0,width),
+					'y': random(0,height),
+					// oritenation
+					'oX': oX,
+					'oY': oY,
+					// speed
+					'v': random(0.5, 1)
+				}   
+			);
+		}
+
+		var getRules = function(nodeIndex, nodes) {
+			// cohesion variables
+			var cohesionX = 0;
+			var cohesionY = 0;
+			
+			// avoidance variables
+			var seperationX = 0;
+			var seperationY = 0;
+			
+			// alignment variables
+			var alignmentX = 0;
+			var alignmentY = 0;
+			
+			// go through all nodes
+			for(var i=0;i<nodes.length;i++) {
+				// if there is a node witin range
+				if(nodeIndex !== i) {
+					// distance to node
+					var d = dist(nodes[i].x,nodes[i].y, nodes[nodeIndex].x, nodes[nodeIndex].y);
+					
+					// if within perceived distance
+					if(d <= perceivedDist) {	
+						// variables to find average
+						cohesionX+=nodes[i].x - nodes[nodeIndex].x;
+						cohesionY+=nodes[i].y - nodes[nodeIndex].y;
+					}
+					
+					// if too close to another node
+					if(d <= seperationDist) {
+						// give more weight to closer nodes
+						seperationX += ((seperationDist-d)/d)*(nodes[i].x - nodes[nodeIndex].x)*-1;
+						seperationY += ((seperationDist-d)/d)*(nodes[i].y - nodes[nodeIndex].y)*-1;
+					}
+					 
+					// get total alignment
+					if(d <= alignmentDist) {
+						alignmentX += nodes[i].oX;
+						alignmentY += nodes[i].oY;
+					}
+					 
+				}
+			}
+			
+			// cohesion data
+			var cohesionMagnitude = sqrt((cohesionX*cohesionX) + (cohesionY*cohesionY));
+			var unitCohesionX = (cohesionMagnitude > 0) ? cohesionX/cohesionMagnitude : 0;
+			var unitCohesionY = (cohesionMagnitude > 0) ? cohesionY/cohesionMagnitude : 0;
+			
+			// seperation data
+			var seperationMagnitude = sqrt((seperationX*seperationX) + (seperationY*seperationY));
+			var unitSeperationX = (seperationMagnitude > 0) ? seperationX/seperationMagnitude : 0;
+			var unitSeperationY = (seperationMagnitude > 0) ? seperationY/seperationMagnitude : 0;
+			
+			// alignment data
+			var alignmentMagnitude = sqrt((alignmentX*alignmentX) + (alignmentY*alignmentY));
+			var unitAlignmentX = (alignmentMagnitude > 0) ? alignmentX/alignmentMagnitude : 0;
+			var unitAlignmentY = (alignmentMagnitude > 0) ? alignmentY/alignmentMagnitude : 0;
+			
+			return {
+				'unitSeperationX': unitSeperationX,
+				'unitSeperationY': unitSeperationY,
+				'unitCohesionX': unitCohesionX,
+				'unitCohesionY': unitCohesionY,
+				'unitAlignmentX': unitAlignmentX,
+				'unitAlignmentY': unitAlignmentY
+			};
+				
+		};
+
+		draw = function() {
+			// draw blank canvas
+			background(255,255,255);
+			
+			// make copy of array for boid changes
+			var nodesCopy = nodes;
+			
+			// go through all nodes
+			for(var i=0;i<nodes.length;i++) {
+				// draw nodes
+				triangle(nodes[i].x - nodeWidth*nodes[i].oY, nodes[i].y + nodeWidth*nodes[i].oX, nodes[i].x + nodeWidth*nodes[i].oY, nodes[i].y - nodeWidth*nodes[i].oX, nodes[i].x + nodeSize*nodes[i].oX*2, nodes[i].y + nodeSize*nodes[i].oY*2);
+			
+				// location of perceived center of mass
+				var data = getRules(i, nodes);
+				
+				// show current direction unit vector
+				stroke(0, 0, 0);
+				line(nodes[i].x, nodes[i].y, nodes[i].x + nodeSize*nodes[i].oX*2, nodes[i].y + nodeSize*nodes[i].oY*2);
+				
+				// calulcate new orientation vector
+				var newDirectionX = nodes[i].oX + ((data.unitCohesionX*cohesionWeight + data.unitSeperationX*seperationWeight + data.unitAlignmentX*alignmentWeight)*delta);
+				var newDirectionY = nodes[i].oY + ((data.unitCohesionY*cohesionWeight + data.unitSeperationY*seperationWeight + data.unitAlignmentY*alignmentWeight)*delta);
+				var newMagnitude = sqrt((newDirectionX*newDirectionX) + (newDirectionY*newDirectionY));
+				
+				// update orientation with new unit orientation vector
+				nodesCopy[i].oX = newDirectionX/newMagnitude;
+				nodesCopy[i].oY = newDirectionY/newMagnitude;
+				
+				// update position
+				nodesCopy[i].x += nodes[i].oX*nodes[i].v;
+				nodesCopy[i].y += nodes[i].oY*nodes[i].v;
+				
+				// make sure node stays in the canvas
+				if(nodesCopy[i].x < 0) {
+					nodes[i].x+=width;
+				}
+				if(nodesCopy[i].x > width) {
+					nodes[i].x-=width;
+				}
+				if(nodesCopy[i].y < 0) {
+					nodes[i].y+=height;
+				}
+				if(nodesCopy[i].y > height) {
+					nodes[i].y-=height;
+				}
+			}
+			
+			// update all nodes with changes
+			nodes = nodesCopy;
+		};
+
+		
+    }};
+    var canvas = document.getElementById("mycanvas"); 
+    var processingInstance = new Processing(canvas, sketchProc); 
+ </script>
+
+</html>
