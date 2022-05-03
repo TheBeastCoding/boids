@@ -1,12 +1,12 @@
 # boids
 Animating the swarm intelligence of birds
 
-## Running the code
+### Running the code
 Download the Boids.html file.
 Double clicking the HTML file should run in the browser. 
 If it does not automatically open in a browswer, right click the file and select 'open with' and choose a browser.
 
-## Tuning the simulation
+### Tuning the simulation
 - width: change the width of the display canvas on HTML
 - height: change the height of the display canvas on HTML
 - nodeCount: changes how many nodes are simulated. Note: for slower systems, reducing this will improve the frame rate.
